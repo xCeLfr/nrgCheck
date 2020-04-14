@@ -2,8 +2,8 @@
 Check if your VPS is ok
 
 Prerequisites:
-- jq : sudo apt-get instal jq
-- jo : sudo apt-get instal jo
+- jq : sudo apt-get install jq
+- jo : sudo apt-get install jo
 - ssmtp : sudo apt-get instal ssmtp (look on google how to install & configure)
 
 Install:
