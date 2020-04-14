@@ -3,10 +3,9 @@
 C_GREEN='\033[1;32m'
 C_NONE='\033[0m'
 
-#echo "obase=10; ibase=16;"$(curl -s "https://explorer.energi.network/api?module=block&action=eth_block_number" | jq -r '.result' | tr [a-z] [A-Z]| cut -dX -f2) | bc
-
 # energi3 user
 ENERGI_USR=nrgstaker
+
 ENERGI_CMD=~/energi3/bin/energi3
 ENERGI_PRM=~/check_param.json
 ENERGI_TMP=~/check.tmp
