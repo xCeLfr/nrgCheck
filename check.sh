@@ -1,7 +1,5 @@
 #!/bin/bash
 #set -x
-C_GREEN='\033[1;32m'
-C_NONE='\033[0m'
 
 # energi3 user
 ENERGI_USR=nrgstaker
@@ -12,16 +10,9 @@ ENERGI_TMP=~/check.tmp
 ENERGI_JSN=~/check.json
 
 # Email
-EMAIL_CMD=/usr/sbin/ssmtp
 EMAIL_DST=your_email@gmail.com
+EMAIL_CMD=/usr/sbin/ssmtp
 EMAIL_TMP=~/check_message.txt
-
-# Run as energi user
-if [ "$USER" != "$ENERGI_USR" ]
-then
-        echo -e "You must be connected as ${C_GREEN}$ENERGI_USR${C_NONE}"
-        exit
-fi
 
 # Create parameter file if !exist (json file)
 # if the file exist, modify it directly(0 = option disabled)
