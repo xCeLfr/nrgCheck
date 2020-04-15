@@ -75,7 +75,7 @@ else
         echo "  balance_delta: $WALLET_LAST_DLT" >> $ENERGI_TMP
 fi
 
-# Temp file to JSON
+# Temp file to JSON ( for future web integration)
 while read ligne
 do
         param=$(echo $ligne| awk -F': |,' '{print $1}')
