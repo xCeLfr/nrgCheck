@@ -3,15 +3,14 @@
 
 # energi3 user
 ENERGI_USR=nrgstaker
-
 ENERGI_CMD=~/energi3/bin/energi3
 ENERGI_PRM=~/check_param.json
 ENERGI_TMP=~/check.tmp
 ENERGI_JSN=~/check.json
 
 # Email
-EMAIL_DST=your_email@gmail.com
 EMAIL_CMD=/usr/sbin/ssmtp
+EMAIL_DST=your.email@gmail.com
 EMAIL_TMP=~/check_message.txt
 
 # Create parameter file if !exist (json file)
@@ -19,13 +18,15 @@ EMAIL_TMP=~/check_message.txt
 # isMasterNode: perform MasterNode checks
 # isStaking : perform Staking checks
 # isSynced : perfom Synchronisation tests (beta)
+# delayBlocks : number of delay blocks allowed, can be both ways (default :2)
 if [ ! -f "$ENERGI_PRM" ]
 then
     cat << !EOF > $ENERGI_PRM
 {
    "isMasterNode": 0,
    "isStaking": 1,
-   "isSynced": 1
+   "isSynced": 1,
+   "delayBlocks": 2
 }
 !EOF
 fi
@@ -87,7 +88,7 @@ jo -p $JO_CMD > $ENERGI_JSN
 
 ## Check list : ##
 
-# MN
+# check 1 : Masternode
 MN_ALIVE=$(jq -r '.isAlive' $ENERGI_JSN)
 MN_ACTIVE=$(jq -r '.isActive' $ENERGI_JSN)
 if [ "x$MN_ALIVE" != "xtrue" -o "x$MN_ACTIVE" != "xtrue" ]
@@ -97,7 +98,7 @@ else
         MN_STATUS="OK"
 fi
 
-# Staking
+# Check 2 : Staking
 ST_MINING=$(jq -r '.miner' $ENERGI_JSN)
 ST_STAKING=$(jq -r '.staking' $ENERGI_JSN)
 if [ "x$ST_MINING" != "xtrue" -o "x$ST_STAKING" != "xtrue" ]
@@ -107,10 +108,12 @@ else
         ST_STATUS="OK"
 fi
 
-# Sync
+# Check 3 : Core Node Synced
 SC_LAST=$(jq -r '.eth_block_number' $ENERGI_JSN)
 SC_LOCAL=$(jq -r '.height' $ENERGI_JSN)
-if [ "x$SC_LAST" != "x$SC_LOCAL" ]
+SC_DELAYBLOCKS=$(jq -r '.delayBlocks' $ENERGI_PRM)
+SC_DELTA=$(expr $SC_LAST - $SC_LOCAL)
+if [ ${SC_DELTA#-} -gt $SC_DELAYBLOCKS ]
 then
         SC_STATUS="KO (last_block_generated:$SC_LAST, local_block:$SC_LOCAL)"
 else
