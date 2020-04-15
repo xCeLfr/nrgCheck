@@ -35,6 +35,7 @@ fi
 IS_MN=$(jq -r '.isMasterNode' $ENERGI_PRM)
 IS_ST=$(jq -r '.isStaking' $ENERGI_PRM)
 IS_SC=$(jq -r '.isSynced' $ENERGI_PRM)
+SC_DELAYBLOCKS=$(jq -r '.delayBlocks' $ENERGI_PRM)
 
 # Save last wallet balance value
 WALLET_LAST_BAL=$(jq -r '.balance' $ENERGI_JSN)
@@ -75,7 +76,7 @@ else
         echo "  balance_delta: $WALLET_LAST_DLT" >> $ENERGI_TMP
 fi
 
-# Temp file to JSON ( for future web integration)
+# Temp file to JSON (for future web integration)
 while read ligne
 do
         param=$(echo $ligne| awk -F': |,' '{print $1}')
@@ -111,7 +112,6 @@ fi
 # Check 3 : Core Node Synced
 SC_LAST=$(jq -r '.eth_block_number' $ENERGI_JSN)
 SC_LOCAL=$(jq -r '.height' $ENERGI_JSN)
-SC_DELAYBLOCKS=$(jq -r '.delayBlocks' $ENERGI_PRM)
 SC_DELTA=$(expr $SC_LAST - $SC_LOCAL)
 if [ ${SC_DELTA#-} -gt $SC_DELAYBLOCKS ]
 then
