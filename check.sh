@@ -18,7 +18,7 @@ EMAIL_TMP=~/check_message.txt
 # isMasterNode: perform MasterNode checks
 # isStaking : perform Staking checks
 # isSynced : perfom Synchronisation tests (beta)
-# delayBlocks : number of delay blocks allowed, can be both ways (default :2)
+# delayBlocks : number of delay blocks allowed, can be both ways (default :3)
 if [ ! -f "$ENERGI_PRM" ] ; then
     cat << !EOF > $ENERGI_PRM
 {
