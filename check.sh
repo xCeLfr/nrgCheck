@@ -164,7 +164,7 @@ then
         TXT_CHANGED_SINCE=$(echo $NB_SEC | awk '{printf "%02dj %02dh %02dm %02ds\n",int($1/3600/24), int($1/3600%24), int($1/60%60), $1%60}')
 
         WALLET_DELTA=$(jq -r '.balance_delta' $ENERGI_JSN)
-        MN_REWARD=$(jq -r '.balance_delta' $ENERGI_JSN)
+        MN_REWARD=$(jq -r '.mnReward' $ENERGI_JSN)
 
         if [ "$WALLET_DELTA" = "$MN_REWARD" ]
         then
