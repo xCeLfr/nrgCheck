@@ -10,7 +10,7 @@ ENERGI_JSN=~/check.json
 
 # Email
 EMAIL_CMD=/usr/sbin/ssmtp
-EMAIL_DST=your.email@gmail.com
+EMAIL_DST=your_email@gmail.com
 EMAIL_TMP=~/check_message.txt
 
 # Create parameter file if !exist (json file)
@@ -18,7 +18,7 @@ EMAIL_TMP=~/check_message.txt
 # isMasterNode: perform MasterNode checks
 # isStaking : perform Staking checks
 # isSynced : perfom Synchronisation tests (beta)
-# delayBlocks : number of delay blocks allowed, can be both ways (default :3)
+# delayBlocks : number of delay blocks allowed, can be both ways (default :2)
 if [ ! -f "$ENERGI_PRM" ] ; then
     cat << !EOF > $ENERGI_PRM
 {
@@ -117,14 +117,45 @@ SC_LOCAL=$(jq -r '.height' $ENERGI_JSN)
 SC_DELTA=$(expr $SC_LAST - $SC_LOCAL)
 if [ ${SC_DELTA#-} -gt $SC_DELAYBLOCKS ]
 then
-        SC_STATUS="KO (last_block_generated:$SC_LAST, local_block:$SC_LOCAL)"
+        SC_STATUS="KO (delay:${SC_DELTA#-} last_block_generated:$SC_LAST, local_block:$SC_LOCAL)"
 else
         SC_STATUS="OK"
 fi
 
-# New Balance to check with last
+# Check 4 : New Balance to check with last
 WALLET_CURR_BAL=$(jq -r '.balance' $ENERGI_JSN)
 
+## Display status if "status" asked on command line ##
+if [ "$1" = "status" ] ; then
+        echo
+
+        if [ $IS_MN = 1 ] ; then
+                printf "%10s : %s\n" "MasterNode" $MN_STATUS
+        fi
+
+        if [ $IS_ST = 1 ] ; then
+                printf "%10s : %s\n" "StakingNRG" $ST_STATUS
+        fi
+
+        if [ $IS_SC = 1 ] ; then
+                printf "%-10s : %s\n" "Synced" $SC_STATUS
+        fi
+
+        # Balance
+        printf "%-10s : %s\n" "Balance" $WALLET_CURR_BAL
+
+
+        # Display JSON values
+        echo -- content of JSON File : $ENERGI_JSN --
+        cat $ENERGI_JSN
+        echo --
+
+        if [ $IS_MN = 1 -a "x$MN_STATUS" != "xOK" ] || [ $IS_ST = 1 -a "x$ST_STATUS" != "xOK" ] || [ $IS_SC = 1 -a "x$SC_STATUS" != "xOK" ] ; then
+                exit 1
+        else
+                exit 0
+        fi
+fi
 
 
 
