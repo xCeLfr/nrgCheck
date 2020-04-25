@@ -9,3 +9,8 @@ Prerequisites:
 Install:
 - Copy the check.sh into you nrg home directory (usually /home/nrgstaker)
 - Add it in nrgstaker crontab for example each 20min: */20 * * * * /home/nrgstaker/check.sh
+
+Usage:
+./check.sh <status> display Masternode/Staking/Syncing/Balance status
+                    it will net send email
+  
