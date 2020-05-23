@@ -1,6 +1,15 @@
 #!/bin/bash
 #set -x
 
+# Colors
+red=$'\e[1;31m'
+grn=$'\e[1;32m'
+yel=$'\e[1;33m'
+blu=$'\e[1;34m'
+mag=$'\e[1;35m'
+cyn=$'\e[1;36m'
+end=$'\e[0m'
+
 # energi3 user
 ENERGI_USR=nrgstaker
 ENERGI_CMD=~/energi3/bin/energi3
@@ -10,8 +19,21 @@ ENERGI_JSN=~/check.json
 
 # Email
 EMAIL_CMD=/usr/sbin/ssmtp
-EMAIL_DST=your_email@gmail.com
+EMAIL_DST=email1@gmail.com,email2@pushover.net
 EMAIL_TMP=~/check_message.txt
+
+# Colored print function
+function print_status {
+        # $1 String
+        # $2 value
+        if [ "x$2" = "xOK" ] ; then
+                printf "%15s : ${grn}%s${end}\n" "$1" "$2"
+        elif [ "x$2" = "xKO" ] ; then
+                printf "%15s : ${red}%s${end}\n" "$1" "$2"
+        else
+                printf "%15s : ${blu}%s${end}\n" "$1" "$2"
+        fi
+}
 
 # Create parameter file if !exist (json file)
 # if the file exist, modify it directly(0 = option disabled)
@@ -29,6 +51,30 @@ if [ ! -f "$ENERGI_PRM" ] ; then
 }
 !EOF
 fi
+
+# JSON
+if [ ! -s "$ENERGI_JSN" ] ; then
+    cat << !EOF > $ENERGI_JSN
+{
+   "announcedBlock": 65896,
+   "isActive": false,
+   "isAlive": false,
+   "swFeatures": "\"0x3000600\"",
+   "swVersion": "\"3.0.6\"",
+   "nrgCollateral": 1000,
+   "mnReward": 0.914,
+   "height": 76168,
+   "miner": false,
+   "staking": false,
+   "totalWeight": 1,
+   "eth_block_number": 76168,
+   "balance": 1,
+   "balance_changed": 1588369213,
+   "balance_delta": 0.914
+}
+!EOF
+fi
+
 
 # Read parameters
 IS_MN=$(jq -r '.isMasterNode' $ENERGI_PRM)
@@ -59,9 +105,15 @@ fi
 
 # Get Last generated block
 if [ $IS_SC = 1 ] ; then
-        LAST_BLOCK_HEX=$(curl -s "https://explorer.energi.network/api?module=block&action=eth_block_number" | jq -r '.result' | tr [a-z] [A-Z]| cut -dX -f2)
+        LAST_BLOCK_HEX=$(curl -s "https://explorer.energi.network/api?module=block&action=eth_block_number" | jq -r '.result' | tr [a-z] [A-Z]| cut -dX -f2) > /dev/null
         LAST_BLOCK_DEC=$(echo "obase=10; ibase=16;$LAST_BLOCK_HEX"| bc)
-        echo "  eth_block_number: $LAST_BLOCK_DEC" >> $ENERGI_TMP
+
+        ## https://explorer.energi.network/ Unavailable
+        if [ "x$LAST_BLOCK_DEC" = "x" ] ; then
+                echo "  eth_block_number: -1" >> $ENERGI_TMP
+        else
+                echo "  eth_block_number: $LAST_BLOCK_DEC" >> $ENERGI_TMP
+        fi
 fi
 
 # Get NRG Balance
@@ -85,7 +137,7 @@ do
         value=$(echo $ligne| awk -F': |,' '{print $2}')
         JO_CMD="$JO_CMD $param=$value"
 done <<<$(cat $ENERGI_TMP | egrep "mnReward:|nrgCollateral:|isActive:|isAlive:|miner:|staking:|balance:|balance_changed:|balance_delta:|height:|totalWeight:|announcedBlock:|swFeatures:|swVersion:|eth_block_number:" | egrep -v "modules")
-rm $ENERGI_TMP
+rm $ENERGI_TMP 2> /dev/null
 jo -p $JO_CMD > $ENERGI_JSN
 
 
@@ -125,27 +177,33 @@ fi
 # Check 4 : New Balance to check with last
 WALLET_CURR_BAL=$(jq -r '.balance' $ENERGI_JSN)
 
+# Time since last wallet balance change
+NB_SEC=$(echo "scale=2;($(date +%s) - $WALLET_LAST_CHG)" | bc -l)
+TXT_CHANGED_SINCE=$(echo $NB_SEC | awk '{printf "%02dj %02dh %02dm %02ds\n",int($1/3600/24), int($1/3600%24), int($1/60%60), $1%60}')
+
 ## Display status if "status" asked on command line ##
 if [ "$1" = "status" ] ; then
         echo
 
         if [ $IS_MN = 1 ] ; then
-                printf "%10s : %s\n" "MasterNode" $MN_STATUS
+                print_status "MasterNode" $MN_STATUS
         fi
 
         if [ $IS_ST = 1 ] ; then
-                printf "%10s : %s\n" "StakingNRG" $ST_STATUS
+                print_status "StakingNRG" $ST_STATUS
         fi
 
         if [ $IS_SC = 1 ] ; then
-                printf "%-10s : %s\n" "Synced" $SC_STATUS
+                print_status "Synced" $SC_STATUS
         fi
 
         # Balance
-        printf "%-10s : %s\n" "Balance" $WALLET_CURR_BAL
+        print_status "Balance" $WALLET_CURR_BAL
+        print_status "Last change" "$TXT_CHANGED_SINCE"
 
 
         # Display JSON values
+        echo
         echo -- content of JSON File : $ENERGI_JSN --
         cat $ENERGI_JSN
         echo --
@@ -180,7 +238,7 @@ then
 
         # Send Email
         $EMAIL_CMD $EMAIL_DST < $EMAIL_TMP
-        rm $EMAIL_TMP
+        rm $EMAIL_TMP 2> /dev/null
 
         exit 1
 fi
@@ -190,9 +248,6 @@ fi
 if [ "x$ENERGI_BAL" != "x$WALLET_LAST_BAL" ]
 then
 
-        # Time since last wallet balance change
-        NB_SEC=$(echo "scale=2;($(date +%s) - $WALLET_LAST_CHG)" | bc -l)
-        TXT_CHANGED_SINCE=$(echo $NB_SEC | awk '{printf "%02dj %02dh %02dm %02ds\n",int($1/3600/24), int($1/3600%24), int($1/60%60), $1%60}')
 
         WALLET_DELTA=$(jq -r '.balance_delta' $ENERGI_JSN)
         MN_REWARD=$(jq -r '.mnReward' $ENERGI_JSN)
@@ -210,10 +265,11 @@ then
         echo "" >> $EMAIL_TMP
         echo "Last changed : $TXT_CHANGED_SINCE" >> $EMAIL_TMP
         echo "Delta : $WALLET_DELTA NRG" >> $EMAIL_TMP
+        echo "Balance : $ENERGI_BAL NRG" >> $EMAIL_TMP
 
         # Send Email
         $EMAIL_CMD $EMAIL_DST < $EMAIL_TMP
-        rm $EMAIL_TMP
+        rm $EMAIL_TMP 2> /dev/null
 
 fi
 
