@@ -12,5 +12,5 @@ Install:
 
 Usage:
 ./check.sh <status> display Masternode/Staking/Syncing/Balance status
-                    it will net send email
+                    it will not send email
   
