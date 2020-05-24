@@ -10,6 +10,7 @@ mag=$'\e[1;35m'
 cyn=$'\e[1;36m'
 end=$'\e[0m'
 
+
 # energi3 user
 ENERGI_USR=nrgstaker
 ENERGI_CMD=~/energi3/bin/energi3
@@ -28,12 +29,19 @@ function print_status {
         # $2 value
         if [ "x$2" = "xOK" ] ; then
                 printf "%15s : ${grn}%s${end}\n" "$1" "$2"
-        elif [ "x$2" = "xKO" ] ; then
+        elif [[ "x$2" == *"xKO"* ]] ; then
                 printf "%15s : ${red}%s${end}\n" "$1" "$2"
         else
                 printf "%15s : ${blu}%s${end}\n" "$1" "$2"
         fi
 }
+
+# get Block Hash from https://explorer.energi.network/blocks/<block>/transactions
+function getBlockHash {
+        curl -s https://explorer.energi.network/blocks/$1/transactions | grep "The SHA256 hash of the block." | cut -d ">" -f3 | cut -d "<" -f1
+}
+
+
 
 # Create parameter file if !exist (json file)
 # if the file exist, modify it directly(0 = option disabled)
@@ -63,6 +71,7 @@ if [ ! -s "$ENERGI_JSN" ] ; then
    "swVersion": "\"3.0.6\"",
    "nrgCollateral": 1000,
    "mnReward": 0.914,
+   "hash": "\"0x3418a5e6efd066e6fda68b4d08408ccc312a909dde9c5ec798c00280850cd461\"",
    "height": 76168,
    "miner": false,
    "staking": false,
@@ -136,7 +145,7 @@ do
         param=$(echo $ligne| awk -F': |,' '{print $1}')
         value=$(echo $ligne| awk -F': |,' '{print $2}')
         JO_CMD="$JO_CMD $param=$value"
-done <<<$(cat $ENERGI_TMP | egrep "mnReward:|nrgCollateral:|isActive:|isAlive:|miner:|staking:|balance:|balance_changed:|balance_delta:|height:|totalWeight:|announcedBlock:|swFeatures:|swVersion:|eth_block_number:" | egrep -v "modules")
+done <<<$(cat $ENERGI_TMP | egrep "mnReward:|nrgCollateral:|isActive:|isAlive:|miner:|staking:|balance:|balance_changed:|balance_delta:|height:|hash:|totalWeight:|announcedBlock:|swFeatures:|swVersion:|eth_block_number:" | egrep -v "modules")
 rm $ENERGI_TMP 2> /dev/null
 jo -p $JO_CMD > $ENERGI_JSN
 
@@ -169,12 +178,24 @@ SC_LOCAL=$(jq -r '.height' $ENERGI_JSN)
 SC_DELTA=$(expr $SC_LAST - $SC_LOCAL)
 if [ ${SC_DELTA#-} -gt $SC_DELAYBLOCKS ]
 then
-        SC_STATUS="KO (delay:${SC_DELTA#-} last_block_generated:$SC_LAST, local_block:$SC_LOCAL)"
+        SC_STATUS="KO ($SC_LOCAL/$SC_LAST) (delay:${SC_DELTA#-})"
 else
         SC_STATUS="OK"
 fi
 
-# Check 4 : New Balance to check with last
+# Check 4 : Check for chain split
+SP_HASH=$(jq -r '.hash' $ENERGI_JSN | cut -d\" -f2)
+SP_HASH_REMOTE=$(getBlockHash $SC_LAST)
+SP_HASH_LOCAL=$($ENERGI_CMD attach --exec "nrg.getBlock($SC_LAST).hash" | sed 's/\"//g')
+if [ "x$SP_HASH_LOCAL" != "x$SP_HASH_REMOTE" ]
+then
+        SP_STATUS="KO chain split detected !!! $SP_HASH_LOCAL - $SP_HASH_REMOTE"
+else
+        SP_STATUS="OK"
+fi
+
+
+# Check 5 : New Balance to check with last
 WALLET_CURR_BAL=$(jq -r '.balance' $ENERGI_JSN)
 
 # Time since last wallet balance change
@@ -186,15 +207,21 @@ if [ "$1" = "status" ] ; then
         echo
 
         if [ $IS_MN = 1 ] ; then
-                print_status "MasterNode" $MN_STATUS
+                print_status "MasterNode" "$MN_STATUS"
         fi
 
         if [ $IS_ST = 1 ] ; then
-                print_status "StakingNRG" $ST_STATUS
+                print_status "StakingNRG" "$ST_STATUS"
         fi
 
         if [ $IS_SC = 1 ] ; then
-                print_status "Synced" $SC_STATUS
+                print_status "Synced" "$SC_STATUS"
+
+                # Chain split test
+                print_status "Good BlockChain" "$SP_STATUS"
+
+                # Last local block
+                print_status "Best Block" "$SC_LOCAL"
         fi
 
         # Balance
@@ -208,7 +235,7 @@ if [ "$1" = "status" ] ; then
         cat $ENERGI_JSN
         echo --
 
-        if [ $IS_MN = 1 -a "x$MN_STATUS" != "xOK" ] || [ $IS_ST = 1 -a "x$ST_STATUS" != "xOK" ] || [ $IS_SC = 1 -a "x$SC_STATUS" != "xOK" ] ; then
+        if [ $IS_MN = 1 -a "x$MN_STATUS" != "xOK" ] || [ $IS_ST = 1 -a "x$ST_STATUS" != "xOK" ] || [ $IS_SC = 1 -a "x$SC_STATUS" != "xOK" ] || [ $IS_SC = 1 -a "x$SP_STATUS" != "xOK" ] ; then
                 exit 1
         else
                 exit 0
@@ -220,7 +247,7 @@ fi
 ## EMAIL IF CHECK NOK ##
 
 # Masternode + Staking
-if [ $IS_MN = 1 -a "x$MN_STATUS" != "xOK" ] || [ $IS_ST = 1 -a "x$ST_STATUS" != "xOK" ] || [ $IS_SC = 1 -a "x$SC_STATUS" != "xOK" ]
+if [ $IS_MN = 1 -a "x$MN_STATUS" != "xOK" ] || [ $IS_ST = 1 -a "x$ST_STATUS" != "xOK" ] || [ $IS_SC = 1 -a "x$SC_STATUS" != "xOK" ] || [ $IS_SC = 1 -a "x$SP_STATUS" != "xOK" ]
 then
         echo "Subject: -ERROR- Energi MN Problem !" >> $EMAIL_TMP
         echo "" >> $EMAIL_TMP
@@ -234,6 +261,7 @@ then
 
         if [ $IS_SC = 1 ] ; then
                 echo "Synced : $SC_STATUS" >> $EMAIL_TMP
+                echo "Good Chain : $SP_STATUS" >> $EMAIL_TMP
         fi
 
         # Send Email
