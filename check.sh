@@ -20,8 +20,7 @@ ENERGI_JSN=~/check.json
 
 # Email
 EMAIL_CMD=/usr/sbin/ssmtp
-#EMAIL_DST=email1@gmail.com,email2@pushover.net
-EMAIL_DST=yannick.louison@gmail.com,pebc7xwx9k@pomail.net
+EMAIL_DST=email1@gmail.com,email2@pushover.net
 EMAIL_TMP=~/check_message.txt
 
 # Colored print function
