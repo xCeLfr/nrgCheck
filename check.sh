@@ -20,7 +20,8 @@ ENERGI_JSN=~/check.json
 
 # Email
 EMAIL_CMD=/usr/sbin/ssmtp
-EMAIL_DST=email1@gmail.com,email2@pushover.net
+#EMAIL_DST=email1@gmail.com,email2@pushover.net
+EMAIL_DST=yannick.louison@gmail.com,pebc7xwx9k@pomail.net
 EMAIL_TMP=~/check_message.txt
 
 # Colored print function
@@ -37,8 +38,15 @@ function print_status {
 }
 
 # get Block Hash from https://explorer.energi.network/blocks/<block>/transactions
-function getBlockHash {
-        curl -s https://explorer.energi.network/blocks/$1/transactions | grep "The SHA256 hash of the block." | cut -d ">" -f3 | cut -d "<" -f1
+function getBlockHash () {
+
+        # Test parameter
+        if [ "x$1" != "x" ]
+        then
+                curl -s https://explorer.energi.network/blocks/$1/transactions | grep "The SHA256 hash of the block." | cut -d ">" -f3 | cut -d "<" -f1
+        else
+                echo -1
+        fi
 }
 
 
@@ -114,15 +122,24 @@ fi
 
 # Get Last generated block
 if [ $IS_SC = 1 ] ; then
-        LAST_BLOCK_HEX=$(curl -s "https://explorer.energi.network/api?module=block&action=eth_block_number" | jq -r '.result' | tr [a-z] [A-Z]| cut -dX -f2) > /dev/null
-        LAST_BLOCK_DEC=$(echo "obase=10; ibase=16;$LAST_BLOCK_HEX"| bc)
 
-        ## https://explorer.energi.network/ Unavailable
-        if [ "x$LAST_BLOCK_DEC" = "x" ] ; then
-                echo "  eth_block_number: -1" >> $ENERGI_TMP
-        else
-                echo "  eth_block_number: $LAST_BLOCK_DEC" >> $ENERGI_TMP
-        fi
+        i=0
+        # Number of retry
+        while [ $i -lt 2 ]
+        do
+                i=$[$i+1]
+                LAST_BLOCK_HEX=$(curl -s "https://explorer.energi.network/api?module=block&action=eth_block_number" | jq -r '.result' | tr [a-z] [A-Z]| cut -dx -f2) > /dev/null
+                LAST_BLOCK_DEC=$(echo "obase=10; ibase=16;${LAST_BLOCK_HEX^^}"| bc)
+
+                ## https://explorer.energi.network/ Unavailable
+                if [ "x$LAST_BLOCK_DEC" = "x" ] ; then
+                        echo "  eth_block_number: -1" >> $ENERGI_TMP
+                else
+                        echo "  eth_block_number: $LAST_BLOCK_DEC" >> $ENERGI_TMP
+                        break
+                fi
+        done
+
 fi
 
 # Get NRG Balance
@@ -184,12 +201,13 @@ else
 fi
 
 # Check 4 : Check for chain split
+SC_LAST_5=$[$SC_LAST - 5] # 5 blocks older
 SP_HASH=$(jq -r '.hash' $ENERGI_JSN | cut -d\" -f2)
-SP_HASH_REMOTE=$(getBlockHash $SC_LAST)
-SP_HASH_LOCAL=$($ENERGI_CMD attach --exec "nrg.getBlock($SC_LAST).hash" | sed 's/\"//g')
+SP_HASH_REMOTE=$(getBlockHash $SC_LAST_5)
+SP_HASH_LOCAL=$($ENERGI_CMD attach --exec "nrg.getBlock($SC_LAST_5).hash" | sed 's/\"//g')
 if [ "x$SP_HASH_LOCAL" != "x$SP_HASH_REMOTE" ]
 then
-        SP_STATUS="KO chain split detected !!! $SP_HASH_LOCAL - $SP_HASH_REMOTE"
+        SP_STATUS="KO chain split detected on block ${SC_LAST_5} - MasterNode Hash: $SP_HASH_LOCAL | Explorer Hash: $SP_HASH_REMOTE"
 else
         SP_STATUS="OK"
 fi
