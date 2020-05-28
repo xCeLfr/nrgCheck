@@ -200,13 +200,13 @@ else
 fi
 
 # Check 4 : Check for chain split
-SC_LAST_5=$[$SC_LAST - 5] # 5 blocks older
+SC_LAST_10=$[$SC_LAST - 10] # 5 blocks older
 SP_HASH=$(jq -r '.hash' $ENERGI_JSN | cut -d\" -f2)
-SP_HASH_REMOTE=$(getBlockHash $SC_LAST_5)
-SP_HASH_LOCAL=$($ENERGI_CMD attach --exec "nrg.getBlock($SC_LAST_5).hash" | sed 's/\"//g')
+SP_HASH_REMOTE=$(getBlockHash $SC_LAST_10)
+SP_HASH_LOCAL=$($ENERGI_CMD attach --exec "nrg.getBlock($SC_LAST_10).hash" | sed 's/\"//g')
 if [ "x$SP_HASH_LOCAL" != "x$SP_HASH_REMOTE" ]
 then
-        SP_STATUS="KO chain split detected on block ${SC_LAST_5} - MasterNode Hash: $SP_HASH_LOCAL | Explorer Hash: $SP_HASH_REMOTE"
+        SP_STATUS="KO chain split detected on block ${SC_LAST_10} - MasterNode Hash: $SP_HASH_LOCAL | Explorer Hash: $SP_HASH_REMOTE"
 else
         SP_STATUS="OK"
 fi
